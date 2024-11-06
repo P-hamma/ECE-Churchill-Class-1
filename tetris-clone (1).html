@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Clone</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #game-container {
+            text-align: center;
+        }
+        #game-board {
+            border: 2px solid #333;
+            display: inline-block;
+        }
+        #score {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-board" width="300" height="600"></canvas>
+        <div id="score">Score: <span id="score-value">0</span></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-board');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score-value');
+
+        const BLOCK_SIZE = 30;
+        const BOARD_WIDTH = 10;
+        const BOARD_HEIGHT = 20;
+
+        let board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+        let score = 0;
+
+        const shapes = [
+            [[1, 1, 1, 1]],
+            [[1, 1], [1, 1]],
+            [[1, 1, 1], [0, 1, 0]],
+            [[1, 1, 1], [1, 0, 0]],
+            [[1, 1, 1], [0, 0, 1]],
+            [[1, 1, 0], [0, 1, 1]],
+            [[0, 1, 1], [1, 1, 0]]
+        ];
+
+        const colors = ['#00ffff', '#ffff00', '#800080', '#0000ff', '#ff7f00', '#00ff00', '#ff0000'];
+
+        let currentShape;
+        let currentColor;
+        let currentX;
+        let currentY;
+
+        function newShape() {
+            const randomIndex = Math.floor(Math.random() * shapes.length);
+            currentShape = shapes[randomIndex];
+            currentColor = colors[randomIndex];
+            currentX = Math.floor(BOARD_WIDTH / 2) - Math.floor(currentShape[0].length / 2);
+            currentY = 0;
+
+            if (collision()) {
+                gameOver();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw the board
+            for (let y = 0; y < BOARD_HEIGHT; y++) {
+                for (let x = 0; x < BOARD_WIDTH; x++) {
+                    if (board[y][x]) {
+                        ctx.fillStyle = board[y][x];
+                        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                        ctx.strokeStyle = '#000';
+                        ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    }
+                }
+            }
+
+            // Draw the current shape
+            ctx.fillStyle = currentColor;
+            for (let y = 0; y < currentShape.length; y++) {
+                for (let x = 0; x < currentShape[y].length; x++) {
+                    if (currentShape[y][x]) {
+                        ctx.fillRect((currentX + x) * BLOCK_SIZE, (currentY + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                        ctx.strokeStyle = '#000';
+                        ctx.strokeRect((currentX + x) * BLOCK_SIZE, (currentY + y) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    }
+                }
+            }
+        }
+
+        function collision() {
+            for (let y = 0; y < currentShape.length; y++) {
+                for (let x = 0; x < currentShape[y].length; x++) {
+                    if (currentShape[y][x]) {
+                        const boardX = currentX + x;
+                        const boardY = currentY + y;
+
+                        if (boardX < 0 || boardX >= BOARD_WIDTH || boardY >= BOARD_HEIGHT || (boardY >= 0 && board[boardY][boardX])) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function merge() {
+            for (let y = 0; y < currentShape.length; y++) {
+                for (let x = 0; x < currentShape[y].length; x++) {
+                    if (currentShape[y][x]) {
+                        board[currentY + y][currentX + x] = currentColor;
+                    }
+                }
+            }
+        }
+
+        function moveDown() {
+            currentY++;
+            if (collision()) {
+                currentY--;
+                merge();
+                removeFullRows();
+                newShape();
+            }
+            draw();
+        }
+
+        function moveLeft() {
+            currentX--;
+            if (collision()) {
+                currentX++;
+            }
+            draw();
+        }
+
+        function moveRight() {
+            currentX++;
+            if (collision()) {
+                currentX--;
+            }
+            draw();
+        }
+
+        function rotate() {
+            const rotated = currentShape[0].map((_, i) => currentShape.map(row => row[i]).reverse());
+            const previousShape = currentShape;
+            currentShape = rotated;
+
+            if (collision()) {
+                currentShape = previousShape;
+            }
+            draw();
+        }
+
+        function removeFullRows() {
+            let rowsRemoved = 0;
+            for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
+                if (board[y].every(cell => cell !== 0)) {
+                    board.splice(y, 1);
+                    board.unshift(Array(BOARD_WIDTH).fill(0));
+                    rowsRemoved++;
+                }
+            }
+            if (rowsRemoved > 0) {
+                score += rowsRemoved * 100;
+                scoreElement.textContent = score;
+            }
+        }
+
+        function gameOver() {
+            alert('Game Over! Your score: ' + score);
+            board = Array(BOARD_HEIGHT).fill().map(() => Array(BOARD_WIDTH).fill(0));
+            score = 0;
+            scoreElement.textContent = score;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowLeft':
+                    moveLeft();
+                    break;
+                case 'ArrowRight':
+                    moveRight();
+                    break;
+                case 'ArrowDown':
+                    moveDown();
+                    break;
+                case 'ArrowUp':
+                    rotate();
+                    break;
+            }
+        });
+
+        newShape();
+        draw();
+        setInterval(moveDown, 500);
+    </script>
+</body>
+</html>
